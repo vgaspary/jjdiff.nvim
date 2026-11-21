@@ -1,0 +1,33 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Neovim and Jujutsu
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$HOME/.local/bin" "$HOME/.local/nvim" /tmp/jj-extract
+          gh release download stable -R neovim/neovim -p 'nvim-linux-x86_64.tar.gz' -O /tmp/nvim.tar.gz
+          tar -xzf /tmp/nvim.tar.gz -C "$HOME/.local/nvim" --strip-components=1
+          echo "$HOME/.local/nvim/bin" >> "$GITHUB_PATH"
+
+          gh release download -R jj-vcs/jj -p 'jj-v*-x86_64-unknown-linux-musl.tar.gz' -O /tmp/jj.tar.gz
+          tar -xzf /tmp/jj.tar.gz -C /tmp/jj-extract
+          install -m 755 "$(find /tmp/jj-extract -name jj -type f | head -n 1)" "$HOME/.local/bin/jj"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify tool versions
+        run: |
+          nvim --version
+          jj --version
+
+      - name: Run headless test suite
+        run: nvim --headless -u NONE --cmd "set rtp+=." -l tests/run_tests.lua
